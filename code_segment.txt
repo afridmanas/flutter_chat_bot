@@ -1,0 +1,128 @@
+
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+const String apiURL = 'https://api.chatgpt.com/v1/';
+
+class ChatGPTAPI {
+  final String apiKey;
+  ChatGPTAPI(this.apiKey);
+
+  Future<String> sendQuery(String query) async {
+    final response = await http.post(Uri.parse(apiURL + 'query'),
+        headers: {'Authorization': 'Bearer $apiKey'},
+        body: json.encode({'query': query}));
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return data['response'];
+    } else {
+      throw Exception('Failed to load response');
+    }
+  }
+}
+
+void main() {
+  final apiKey = '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
+'; // replace with your API key
+  final chatGPTAPI = ChatGPTAPI(apiKey);
+
+  runApp(MyApp(chatGPTAPI: chatGPTAPI));
+}
+
+class MyApp extends StatelessWidget {
+  final ChatGPTAPI chatGPTAPI;
+
+  MyApp({required this.chatGPTAPI});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'ChatGPT Demo',
+      home: ChatBotPage(chatGPTAPI: chatGPTAPI),
+    );
+  }
+}
+
+class ChatBotPage extends StatefulWidget {
+  final ChatGPTAPI chatGPTAPI;
+
+  ChatBotPage({required this.chatGPTAPI});
+
+  @override
+  _ChatBotPageState createState() => _ChatBotPageState();
+}
+
+class _ChatBotPageState extends State<ChatBotPage> {
+  final TextEditingController _textController = TextEditingController();
+  final List<String> _messages = [];
+
+  void _handleSubmit(String text) async {
+    _textController.clear();
+    setState(() {
+      _messages.insert(0, text);
+    });
+
+    try {
+      final response = await widget.chatGPTAPI.sendQuery(text);
+      setState(() {
+        _messages.insert(0, 'ChatGPT: $response');
+      });
+    } catch (e) {
+      setState(() {
+        _messages.insert(0, 'ChatGPT API error: $e');
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('ChatBot'),
+      ),
+      body: Column(
+        children: <Widget>[
+          Flexible(
+            child: ListView.builder(
+              reverse: true,
+              itemCount: _messages.length,
+              itemBuilder: (BuildContext context, int index) {
+                final message = _messages[index];
+                return Container(
+                  padding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
+                  child: Text(
+                    message,
+                    style: TextStyle(fontSize: 16.0),
+                  ),
+                );
+              },
+            ),
+          ),
+          Divider(height: 1.0),
+          Container(
+            decoration: BoxDecoration(color: Theme.of(context).cardColor),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: TextField(
+                    controller: _textController,
+                    onSubmitted: _handleSubmit,
+                    decoration: InputDecoration.collapsed(
+                      hintText: 'Type a message',
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.send),
+                  onPressed: () => _handleSubmit(_textController.text),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
